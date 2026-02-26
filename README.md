@@ -1,6 +1,6 @@
 # consult-latex-ref
 Consult interface to LaTeX reference management. Bibliography management is already done wonderfully by `citar`. My other coding bits are here: https://github.com/sandyber/geekystuff.
-# Sample configuration
+## Sample configuration
 ```
 (use-package consult-latex-ref
   :vc (consult-latex-ref :url "https://github.com/sandyber/consult-latex-ref" 
