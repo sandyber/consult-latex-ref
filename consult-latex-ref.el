@@ -1,4 +1,4 @@
-;;; consult-latex-ref.el --- Consult-powered reference navigation for LaTeX -*- lexical-binding: t -*-
+;;; consult-latex-ref.el --- Consult-powered reference navigation for LaTeX -*- lexical-binding: t; -*-
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
