@@ -17,7 +17,7 @@
 ;;
 ;; A parse cache avoids re-scanning unchanged files on every invocation.
 ;; Cache entries are invalidated when a file is saved, or when its
-;; modification time has changed since the last scan.  Files open in
+;; modification time has changed since the last scan. Files open in
 ;; modified buffers are always scanned live.
 ;;
 ;; Commands:
