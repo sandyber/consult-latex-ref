@@ -13,7 +13,7 @@
 ;;
 ;; It provides consult-powered label search across multi-file projects,
 ;; with context-aware ref command selection (\\ref, \\eqref, \\autoref etc.)
-;; and label-prefix heuristics (fig:, eq:, tab:, sec: etc.).
+;; and label-prefix heuristics (fig:, eq:, tab:, sec:, fn: etc.).
 ;;
 ;; A parse cache avoids re-scanning unchanged files on every invocation.
 ;; Cache entries are invalidated when a file is saved, or when its
@@ -78,7 +78,8 @@ or \"\" for no prefix."
     ("tab:" . "autoref")
     ("sec:" . "autoref")
     ("ch:"  . "autoref")
-    ("app:" . "autoref"))
+    ("app:" . "autoref")
+    ("fn:"  . "ref"))
   "Alist mapping label prefixes to default ref commands.
 When a label matches a prefix, the associated command is used
 as the default instead of `consult-latex-ref-default-command'.
@@ -135,6 +136,11 @@ based on the environment name."
 
 (defcustom consult-latex-ref-table-prefix "tab:"
   "Label prefix for table environments."
+  :group 'consult-latex-ref
+  :type 'string)
+
+(defcustom consult-latex-ref-footnote-prefix "fn:"
+  "Label prefix for footnotes."
   :group 'consult-latex-ref
   :type 'string)
 
@@ -613,11 +619,39 @@ E.g. if eq:1 and eq:2 exist, returns 3."
                                bound t)
         (match-string-no-properties 1)))))
 
+(defun consult-latex-ref--inside-footnote-p ()
+  "Return non-nil if point is inside a \\footnote{...} argument."
+  (save-excursion
+    (let ((pt (point))
+          (found nil))
+      ;; Walk backward looking for \footnote{ that brackets our position
+      (while (and (not found)
+                  (re-search-backward "\\\\footnote{" nil t))
+        (let ((open (match-end 0)))
+          ;; Find the matching closing brace
+          (goto-char (1- open))          ; on the opening {
+          (condition-case nil
+              (progn
+                (forward-sexp 1)
+                (when (<= open pt (1- (point)))
+                  (setq found t)))
+            (scan-error nil))
+          (unless found
+            ;; Continue searching further back
+            (goto-char (1- open)))))
+      found)))
+
 (defun consult-latex-ref--context-label (labels)
   "Determine a suggested label string based on point context.
 LABELS is the current project label list for sequential numbering."
   (let ((env (consult-latex-ref--enclosing-environment)))
     (cond
+     ;; Footnote context (checked before environment, since \footnote can
+     ;; appear anywhere — including inside figure/table environments)
+     ((consult-latex-ref--inside-footnote-p)
+      (let* ((prefix consult-latex-ref-footnote-prefix)
+             (n (consult-latex-ref--next-sequential prefix labels)))
+        (format "%s%d" prefix n)))
      ;; Equation-like environment
      ((and env (member env consult-latex-ref-equation-environments))
       (let* ((prefix consult-latex-ref-equation-prefix)
