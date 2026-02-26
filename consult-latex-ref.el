@@ -1,5 +1,10 @@
 ;;; consult-latex-ref.el --- Consult-powered reference navigation for LaTeX -*- lexical-binding: t; -*-
 
+;; Copyright (C) 2024
+;; Version: 0.1
+;; Package-Requires: ((emacs "28.1") (consult "0.34"))
+;; Keywords: latex, tex, convenience
+
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
 ;;; Commentary:
