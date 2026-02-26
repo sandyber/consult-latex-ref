@@ -26,8 +26,8 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'consult)
-
 (require 'tex nil t)
 
 (declare-function TeX-parse-macro "ext:tex")
@@ -380,7 +380,7 @@ Returns a plist (:labels LABELS :toc TOC)."
       (dolist (file files)
         (puthash file (consult-latex-ref--file-mtime file) new-mtimes))
       ;; Record ticks for freshly scanned files
-      (cl-mapcar (lambda (file data)
+      (cl-mapc (lambda (file data)
                    (when-let* ((tick (plist-get data :tick)))
                      (puthash file tick new-ticks)))
                  stale-files new-data)
