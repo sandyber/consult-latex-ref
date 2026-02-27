@@ -13,7 +13,7 @@
 ;;
 ;; It provides consult-powered label search across multi-file projects,
 ;; with context-aware ref command selection (\\ref, \\eqref, \\autoref etc.)
-;; and label-prefix heuristics (fig:, eq:, tab:, sec:, fn: etc.).
+;; and label-prefix heuristics (fig:, eq:, tab:, sec:, fn:, item: etc.).
 ;;
 ;; A parse cache avoids re-scanning unchanged files on every invocation.
 ;; Cache entries are invalidated when a file is saved, or when its
@@ -79,7 +79,8 @@ or \"\" for no prefix."
     ("sec:" . "autoref")
     ("ch:"  . "autoref")
     ("app:" . "autoref")
-    ("fn:"  . "ref"))
+    ("fn:"   . "ref")
+    ("item:" . "ref"))
   "Alist mapping label prefixes to default ref commands.
 When a label matches a prefix, the associated command is used
 as the default instead of `consult-latex-ref-default-command'.
@@ -92,7 +93,7 @@ Only used when `consult-latex-ref-prompt-for-command' is nil."
 (defcustom consult-latex-ref-equation-environments
   '("equation" "equation*" "align" "align*" "alignat" "alignat*"
     "gather" "gather*" "multline" "multline*" "flalign" "flalign*"
-    "eqnarray" "eqnarray*" "exe" "xlist" "xlisti")
+    "eqnarray" "eqnarray*" "exe" "xlist" "xlisti" "inexe" "inxlist" "inxlisti")
   "Environments treated as equation-like for label creation.
 Labels get the prefix from `consult-latex-ref-equation-prefix' and
 a sequential number."
@@ -112,6 +113,14 @@ a slug from the \\\\caption."
   "Environments treated as tables for label creation.
 Labels get the prefix from `consult-latex-ref-table-prefix' and
 a slug from the \\\\caption."
+  :group 'consult-latex-ref
+  :type '(repeat string))
+
+(defcustom consult-latex-ref-enumerate-environments
+  '("enumerate" "enumerate*" "inparaenum")
+  "Environments treated as enumerate-like for label creation.
+Labels get the prefix from `consult-latex-ref-item-prefix' and
+a sequential number."
   :group 'consult-latex-ref
   :type '(repeat string))
 
@@ -141,6 +150,11 @@ based on the environment name."
 
 (defcustom consult-latex-ref-footnote-prefix "fn:"
   "Label prefix for footnotes."
+  :group 'consult-latex-ref
+  :type 'string)
+
+(defcustom consult-latex-ref-item-prefix "item:"
+  "Label prefix for enumerate-like environments."
   :group 'consult-latex-ref
   :type 'string)
 
@@ -545,7 +559,7 @@ Returns the marker position of the selected label."
   "Prompt for a ref command, with a smart default for LABEL."
   (completing-read "Ref command: "
                    consult-latex-ref-commands
-                   nil t nil
+                   nil nil nil ; nil t nil: disable free typing
                    'consult-latex-ref-command-history
                    (consult-latex-ref--command-for-label label)))
 
@@ -675,6 +689,11 @@ LABELS is the current project label list for sequential numbering."
             (format "%s%d" prefix
                     (consult-latex-ref--next-sequential prefix labels))
           (format "%s%s" prefix slug))))
+     ;; Enumerate-like environment
+     ((and env (member env consult-latex-ref-enumerate-environments))
+      (let* ((prefix consult-latex-ref-item-prefix)
+             (n (consult-latex-ref--next-sequential prefix labels)))
+        (format "%s%d" prefix n)))
      ;; Theorem-like environment
      ((and env (member env consult-latex-ref-theorem-environments))
       (let* ((prefix (or (cdr (assoc env consult-latex-ref-theorem-prefix-alist))
