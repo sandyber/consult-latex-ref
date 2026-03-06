@@ -486,7 +486,7 @@ LABELS is a list of (label-string . (file-path . char-position))."
               (marker (car loc))
               (line (cdr loc)))
     (list cand
-          (propertize (format "  %d  " line) 'face 'consult-line-number-prefix)
+          (propertize (format "  %6d  " line) 'face 'consult-line-number-prefix)
           (when (marker-buffer marker)
             (with-current-buffer (marker-buffer marker)
               (save-excursion
@@ -502,7 +502,7 @@ LABELS is a list of (label-string . (file-path . char-position))."
               (marker (car loc))
               (line (cdr loc)))
     (list cand
-          (propertize (format "  %5d  " line) 'face 'consult-line-number-prefix)
+          (propertize (format "  %6d  " line) 'face 'consult-line-number-prefix)
           (when (marker-buffer marker)
             (propertize (buffer-name (marker-buffer marker))
                         'face 'consult-latex-ref-toc-file-face)))))
