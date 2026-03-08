@@ -224,6 +224,11 @@ based on the environment name."
   "Face for orphaned label names in the orphan list."
   :group 'consult-latex-ref)
 
+(defface consult-latex-ref-origin-face
+  '((t :inherit font-lock-comment-face :slant italic))
+  "Face for the origin (current position) candidate."
+  :group 'consult-latex-ref)
+
 ;;; History variables
 
 (defvar consult-latex-ref-command-history nil
@@ -515,6 +520,7 @@ If INITIAL is a string, pre-fill the consult input with it.
 Returns the marker position of the selected label."
   (let* ((master (consult-latex-ref--master-file))
          (current-buf (current-buffer))
+         (origin-marker (point-marker))
          (data (consult-latex-ref--update-cache master))
          (refs (seq-uniq
                 (consult-latex-ref--make-candidates (plist-get data :labels))
@@ -532,19 +538,30 @@ Returns the marker position of the selected label."
       (when old
         (setf (cdr old) nil)
         (setq refs (reverse (append refs head)))))
-    (consult--read
-     refs
-     :prompt "Labels: "
-     :annotate #'consult-latex-ref--annotate
-     :category 'consult-location
-     :sort nil
-     :require-match t
-     :lookup #'consult--lookup-location
-     :history '(:input consult--line-history)
-     :initial initial
-     :add-history (thing-at-point 'symbol)
-     :default (car refs)
-     :state (consult--jump-preview))))
+    (let* ((origin-cand
+            (with-current-buffer current-buf
+              (save-excursion
+                (goto-char origin-marker)
+                (consult--location-candidate
+                 (propertize "  ***  current position  ***  "
+                             'face 'consult-latex-ref-origin-face
+                             'consult-latex-ref--origin t)
+                 (point-marker)
+                 (line-number-at-pos)
+                 (point-marker))))))
+      (consult--read
+       (cons origin-cand refs)
+       :prompt "Labels: "
+       :annotate #'consult-latex-ref--annotate
+       :category 'consult-location
+       :sort nil
+       :require-match t
+       :lookup #'consult--lookup-location
+       :history '(:input consult--line-history)
+       :initial initial
+       :add-history (thing-at-point 'symbol)
+       :default origin-cand ;(car refs)
+       :state (consult--jump-preview)))))
 
 ;;; Internal: command selection
 
@@ -796,24 +813,29 @@ Selects a label using consult, then inserts
 `consult-latex-ref-prefix' followed by the ref command and label.
 INVERT-PROMPT inverts the prompt-for-command behaviour."
   (interactive "P")
-  (let* ((marker (consult-latex-ref--find-label))
-         (label (when (markerp marker)
+  (let* ((origin (point-marker))
+         (marker (consult-latex-ref--find-label))
+         (label (when (and (markerp marker)
+                           (not (and (eq (marker-buffer marker)
+                                        (marker-buffer origin))
+                                     (= (marker-position marker)
+                                        (marker-position origin)))))
                   (with-current-buffer (marker-buffer marker)
                     (save-excursion
                       (goto-char marker)
                       (when (looking-at "[^}]+")
-                        (match-string-no-properties 0))))))
-         (command (if (xor invert-prompt consult-latex-ref-prompt-for-command)
-                      (consult-latex-ref--select-command (or label ""))
-                    (consult-latex-ref--command-for-label (or label "")))))
+                        (match-string-no-properties 0)))))))
     (when label
-      (insert consult-latex-ref-prefix)
-      (if (fboundp 'TeX-parse-macro)
-          (TeX-parse-macro command nil)
-        (insert (format "\\%s{}" command))
-        (backward-char))
-      (insert label)
-      (forward-char 1))))
+      (let ((command (if (xor invert-prompt consult-latex-ref-prompt-for-command)
+                         (consult-latex-ref--select-command label)
+                       (consult-latex-ref--command-for-label label))))
+        (insert consult-latex-ref-prefix)
+        (if (fboundp 'TeX-parse-macro)
+            (TeX-parse-macro command nil)
+          (insert (format "\\%s{}" command))
+          (backward-char))
+        (insert label)
+        (forward-char 1)))))
 
 ;;;###autoload
 (defun consult-latex-create-label ()
