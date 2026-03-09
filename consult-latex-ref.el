@@ -26,6 +26,7 @@
 ;;  `consult-latex-view-crossref'     - Show the \\label for the \\ref at point
 ;;  `consult-latex-create-label'      - Create a context-aware \\label at point
 ;;  `consult-latex-list-orphan-labels'- List labels never referenced in the project
+;;  `consult-latex-list-label-refs'   - List all usages of a given label
 ;;  `consult-latex-toc'               - Browse project table of contents
 ;;  `consult-latex-ref-reset-cache'   - Manually clear the parse cache
 
@@ -927,6 +928,74 @@ Presents results in a consult buffer for navigation."
                      (point-marker))
                     candidates))))))
     (nreverse candidates)))
+
+;;;###autoload
+(defun consult-latex-list-label-refs (&optional label)
+  "List all \\ref-like usages of LABEL across the project.
+If LABEL is nil, prompts interactively, pre-filled with the label
+key at point if inside a \\ref command.
+Presents results as a consult location list for navigation."
+  (interactive)
+  (let* ((master (consult-latex-ref--master-file))
+         (files  (consult-latex-ref--collect-files master))
+         (data   (consult-latex-ref--update-cache master))
+         (label  (or label
+                     (let ((key-at-pt (consult-latex-ref--key-at-point))
+                           (all-labels (mapcar #'car (plist-get data :labels))))
+                       (completing-read
+                        "Find refs to label: "
+                        all-labels nil nil key-at-pt
+                        'consult-latex-ref-label-history))))
+         (ref-regexp
+          (concat "\\\\\\(?:"
+                  (mapconcat #'regexp-quote consult-latex-ref-commands "\\|")
+                  "\\){" (regexp-quote label) "}"))
+         (candidates ()))
+    (dolist (file files)
+      (let* ((buf (find-buffer-visiting file))
+             (content
+              (if buf
+                  (with-current-buffer buf
+                    (buffer-substring-no-properties (point-min) (point-max)))
+                (with-temp-buffer
+                  (insert-file-contents file)
+                  (buffer-string)))))
+        (with-temp-buffer
+          (insert content)
+          (goto-char (point-min))
+          (while (re-search-forward ref-regexp nil t)
+            (let* ((match-pos (match-beginning 0))
+                   (real-buf  (or buf (find-file-noselect file t))))
+              (when (buffer-live-p real-buf)
+                (with-current-buffer real-buf
+                  (save-excursion
+                    (goto-char match-pos)
+                    (push (consult--location-candidate
+                           (concat
+                            (propertize label 'face 'consult-latex-ref-label-face)
+                            "  ")
+                            ;; (propertize
+                            ;;  (buffer-substring-no-properties (pos-bol) (pos-eol))
+                            ;;  'face 'consult-latex-ref-origin-face))
+                           (point-marker)
+                           (line-number-at-pos)
+                           (point-marker))
+                          candidates)))))))))
+    (if (null candidates)
+        (message "consult-latex-ref: no references to label \"%s\" found" label)
+      (let ((marker (consult--read
+                     (nreverse candidates)
+                     :prompt (format "Refs to \"%s\": " label)
+                     :annotate #'consult-latex-ref--annotate
+                     :category 'consult-location
+                     :sort nil
+                     :require-match t
+                     :lookup #'consult--lookup-location
+                     :history '(:input consult--line-history)
+                     :state (consult--jump-preview))))
+        (when (markerp marker)
+          (switch-to-buffer (marker-buffer marker))
+          (goto-char marker))))))
 
 ;;;###autoload
 (defun consult-latex-toc ()
